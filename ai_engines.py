@@ -3,11 +3,11 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE"
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Hier deinen Key einfügen
 
 class HybridAI:
     def __init__(self):
-        # Der neue, stabile Client für 2026
+        # Der stabile Client für 2026
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def analyze(self, text: str):
@@ -27,7 +27,6 @@ class HybridAI:
                 contents=prompt
             )
             
-            # JSON-Extraktion
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             return json.loads(match.group()) if match else {"relevance_score": 0}
             
