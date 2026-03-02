@@ -1,33 +1,42 @@
+# news_collector.py - FINALE DAYTRADING VERSION
 import feedparser
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-from typing import List, Dict
 import time
 import re
+import asyncio
 
-# Import der KI-Engine und Alerts
+# Integration deiner spezialisierten Module
 try:
-    from ai_engines import analyze_score
-    from alerts import send_to_telegram
+    from ai_engines import HybridAI
+    from alerts import TelegramAlerter
 except ImportError:
-    def analyze_score(text): return None
-    def send_to_telegram(msg): print(f"TELEGRAM: {msg}")
+    print("⚠️ Warnung: ai_engines.py oder alerts.py nicht gefunden!")
+    # Minimal-Fallback für Testzwecke
+    class HybridAI:
+        def analyze(self, text): return {"relevance_score": 0}
+    class TelegramAlerter:
+        def __init__(self, t, c): pass
+        async def send_alert(self, a, b): print("Telegram-Mock")
 
 class NewsCollector:
     def __init__(self):
-        print("🚀 BIOTECH SCANNER V5 - DAYTRADING MODE")
+        print("🚀 BIOTECH SCANNER V5 - DAYTRADING MODE ACTIVE")
+        # 2026-01-21: Fokus auf schnelllebige RSS-Quellen
         self.sources = {
             'endpoints': 'https://endpts.com/feed/',
             'fierce_biotech': 'https://www.fiercebiotech.com/rss.xml',
             'stat_news': 'https://www.statnews.com/feed/',
             'fda_news': 'https://www.fda.gov/news-events/newsroom/rss.xml',
             'ema_news': 'https://www.ema.europa.eu/en/news/rss.xml',
-            'biospace': 'https://www.biospace.com/rss/news'
+            'biospace': 'https://www.biospace.com/rss/news',
+            'genengnews': 'https://www.genengnews.com/feed/'
         }
         self.seen_urls = set()
 
-    def fetch_all(self) -> List[Dict]:
+    def fetch_all(self):
+        """Sammelt News aus allen definierten Quellen."""
         all_news = []
         for name, url in self.sources.items():
             try:
@@ -41,31 +50,63 @@ class NewsCollector:
                             'source': name
                         })
                         self.seen_urls.add(entry.link)
-            except: continue
+            except Exception as e:
+                print(f"   ⚠️ Fehler bei {name}: {str(e)[:30]}")
         return all_news
 
-if __name__ == "__main__":
+    def filter_keywords(self, articles, keywords):
+        """Vorfilterung basierend auf marktentscheidenden Begriffen."""
+        filtered = []
+        for article in articles:
+            text = f"{article['title']} {article['summary']}".lower()
+            if any(kw.lower() in text for kw in keywords):
+                filtered.append(article)
+        return filtered
+
+async def main_loop():
+    # --- KONFIGURATION ---
+    # Hier deine echten Daten eintragen oder als Env-Variablen nutzen
+    TELEGRAM_TOKEN = "DEIN_TELEGRAM_BOT_TOKEN"
+    TELEGRAM_CHAT_ID = "DEINE_CHAT_ID"
+    
+    # Initialisierung
     collector = NewsCollector()
-    # Erkennt auch europäische Begriffe [cite: 2026-01-16]
-    keywords = ["approval", "phase", "merger", "acquisition", "Zulassung", "Übernahme", "Studie"]
-
+    ai_engine = HybridAI()
+    alerter = TelegramAlerter(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
+    
+    # 2026-01-16: Scanner erkennt englische und europäische Begriffe
+    search_keywords = [
+        "approval", "phase", "merger", "acquisition", "clinical trial",
+        "Zulassung", "Übernahmeangebot", "Quartalszahlen", "Studie", "PDUFA"
+    ]
+    
     while True:
-        print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Scan läuft...")
-        news = collector.fetch_all()
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"\n[{current_time}] 🔎 Starte Scan-Zyklus...")
         
-        for item in news:
-            text = f"{item['title']} {item['summary']}"
-            # Filtern nach Keywords
-            if any(kw.lower() in text.lower() for kw in keywords):
-                # KI-Analyse ohne feste Watchliste
-                result = analyze_score(text)
-                
-                if result and result.get('score', 0) >= 7:
-                    msg = (f"🚨 {result['direction']} | ${result['ticker']} (Score: {result['score']})\n"
-                           f"📰 {result['summary']}\n🔗 {item['link']}")
-                    send_to_telegram(msg)
-                    print(f"✅ Alert gesendet: ${result['ticker']}")
+        # 1. Sammeln
+        raw_articles = collector.fetch_all()
+        
+        # 2. Filtern nach Keywords (Vorauswahl für KI)
+        relevant_news = collector.filter_keywords(raw_articles, search_keywords)
+        print(f"🎯 {len(relevant_news)} News identifiziert. Starte KI-Analyse...")
+        
+        for article in relevant_news:
+            # 3. KI-Analyse (Ticker-Erkennung & Trading-Score)
+            # Nutzt deine HybridAI-Logik aus ai_engines.py
+            analysis = ai_engine.analyze(f"{article['title']} {article['summary']}")
+            
+            # 4. Alert senden bei Trading-Signal (Score >= 7)
+            # 2026-01-20: Ticker-Validierung erfolgt innerhalb der KI-Engine
+            if analysis and analysis.get('relevance_score', 0) >= 7:
+                await alerter.send_alert(article, analysis)
+        
+        # 2026-01-21: Daytrading-Intervall 15 Minuten
+        print(f"⏳ Zyklus beendet. Warte 15 Minuten...")
+        await asyncio.sleep(900)
 
-        print("⏳ Warte 15 Minuten...")
-        time.sleep(900) # Daytrading Takt: 15 Min [cite: 2026-01-21]
-
+if __name__ == "__main__":
+    try:
+        asyncio.run(main_loop())
+    except KeyboardInterrupt:
+        print("\n🛑 Scanner manuell gestoppt.")
