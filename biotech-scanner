@@ -1,0 +1,97 @@
+cat << 'EOF' > /home/bogi1971/biotech-scanner/biotech-scanner/actions-runner/biotech_live.py
+import json, re, asyncio, feedparser, requests, telegram
+from google import genai
+
+# --- CONFIGURATION (DEINE DATEN WIEDER EINTRAGEN) ---
+GEMINI_KEY = "DEIN_GEMINI_KEY"
+TG_TOKEN = "DEIN_TELEGRAM_TOKEN"
+TG_CHAT_ID = "DEIN_CHAT_ID"
+
+class LiveScanner:
+    def __init__(self):
+        print("🚀 BIOTECH SCANNER V5 - 24/7 DAYTRADING MODE ACTIVE")
+        self.client = genai.Client(api_key=GEMINI_KEY)
+        self.bot = telegram.Bot(token=TG_TOKEN)
+        
+        self.sources = {
+            'endpoints': 'https://endpts.com/feed/',
+            'fierce_biotech': 'https://www.fiercebiotech.com/rss.xml',
+            'stat_news': 'https://www.statnews.com/feed/',
+            'fda_news': 'https://www.fda.gov/news-events/newsroom/rss.xml',
+            'ema_news': 'https://www.ema.europa.eu/en/news/rss.xml',
+            'biospace': 'https://www.biospace.com/rss/news',
+            'genengnews': 'https://www.genengnews.com/feed/'
+        }
+        self.seen_urls = set() # Da das Skript jetzt an bleibt, merkt es sich diese URLs für immer!
+        self.keywords = [
+            "zulassung", "übernahmeangebot", "quartalszahlen", 
+            "fda", "phase", "merger", "buyout", "approval", 
+            "earnings", "studie", "topline", "data", "pdufa", "ema"
+        ]
+
+    async def check_news(self):
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        
+        # DIE ENDLOSSCHLEIFE STARTET HIER
+        while True:
+            print("\n" + "="*50)
+            print("🔄 STARTE NEUEN SCAN-ZYKLUS...")
+            print("="*50)
+
+            for source_name, url in self.sources.items():
+                print(f"\n📡 Lese Feed: {source_name.upper()}...")
+                try:
+                    response = requests.get(url, headers=headers, timeout=10)
+                    feed = feedparser.parse(response.content)
+                    
+                    for entry in feed.entries[:5]: 
+                        link = entry.link
+                        
+                        if link in self.seen_urls:
+                            continue
+                        self.seen_urls.add(link)
+                        
+                        text_to_check = (entry.title + " " + entry.get('description', '')).lower()
+                        
+                        if not any(kw in text_to_check for kw in self.keywords):
+                            print(f"⏩ Überspringe: {entry.title[:40]}...")
+                            continue
+
+                        print(f"🎯 BEGRIFF GEFUNDEN! Sende an KI: {entry.title[:50]}...")
+                        
+                        try:
+                            res = self.client.models.generate_content(
+                                model='gemini-2.0-flash',
+                                contents=f"Biotech-Check: {entry.title}. Antworte NUR JSON: {{'score': 8, 'ticker': 'TICKER', 'summary': 'Deutsch'}}"
+                            )
+                            match = re.search(r'\{.*\}', res.text, re.DOTALL)
+                            
+                            if match:
+                                data = json.loads(match.group())
+                                if data.get('score', 0) >= 8:
+                                    msg = f"🚀 <b>{data.get('ticker', 'N/A')} (Score: {data['score']}/10)</b>\n{data.get('summary', '')}\n<a href='{link}'>Link</a>"
+                                    async with self.bot:
+                                        await self.bot.send_message(chat_id=TG_CHAT_ID, text=msg, parse_mode='HTML')
+                                    print(f"✅ Alert gesendet für {data.get('ticker', 'N/A')}")
+                                else:
+                                    print(f"📉 KI sagt: Score zu niedrig ({data.get('score', 0)}/10).")
+                        except Exception as e:
+                            if "429" in str(e):
+                                print("🛑 Google API Limit erreicht! Überspringe diese News und warte extra lange...")
+                            else:
+                                print(f"⚠️ KI-Fehler: {e}")
+                        
+                        print("⏳ Warte 15 Sekunden (Strikter API-Limit Schutz)...")
+                        await asyncio.sleep(15)
+                        
+                except Exception as e:
+                    print(f"⚠️ Fehler beim Lesen von {source_name}: {e}")
+            
+            # WENN ER ALLE SEITEN DURCH HAT, MACHT ER PAUSE BEVOR ER NEU ANFÄNGT
+            print("\n💤 Zyklus beendet. Warte 5 Minuten bis zum nächsten Check...")
+            await asyncio.sleep(300) # 300 Sekunden = 5 Minuten
+
+if __name__ == "__main__":
+    scanner = LiveScanner()
+    asyncio.run(scanner.check_news())
+EOF
