@@ -24,7 +24,6 @@ class TelegramAlerter:
         )
         
         try:
-            # Direkte Instanzierung behebt httpx-Konflikt
             bot = telegram.Bot(token=self.token)
             async with bot:
                 await bot.send_message(
