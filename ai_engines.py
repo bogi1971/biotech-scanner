@@ -3,25 +3,17 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Bitte hier den neuen Key einfügen
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Bitte hier deinen API-Key einfügen
 genai.configure(api_key=GEMINI_API_KEY)
 
 class HybridAI:
     def __init__(self):
-        # Initialisierung des Modells innerhalb der Klasse
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Wir nutzen den exakten Namen 'models/gemini-1.5-flash'
+        self.model = genai.GenerativeModel('models/gemini-1.5-flash')
 
     def analyze(self, text: str):
-        """
-        KI-Analyse: Extrahiert Ticker und bewertet Daytrading-Potenzial.
-        """
-        if not GEMINI_API_KEY or GEMINI_API_KEY == "DEIN_NEUER_API_KEY":
-            return {
-                "ticker": "N/A", 
-                "relevance_score": 0, 
-                "direction": "NEUTRAL", 
-                "summary_german": "Key fehlt"
-            }
+        if not GEMINI_API_KEY or "AIza" not in GEMINI_API_KEY:
+            return {"ticker": "N/A", "relevance_score": 0, "direction": "NEUTRAL", "summary_german": "Key fehlt"}
 
         try:
             prompt = f"""
@@ -32,17 +24,18 @@ class HybridAI:
             3. Richtung (LONG/SHORT).
             4. Kurze deutsche Zusammenfassung (max. 10 Wörter).
 
-            Antworte NUR als JSON-Objekt ohne Markdown-Formatierung:
+            Antworte NUR als JSON-Objekt ohne Markdown:
             {{"ticker": "TICKER", "relevance_score": 8, "direction": "LONG", "summary_german": "Zusammenfassung"}}
             """
+            # Wir erzwingen die Nutzung der stabilen API-Version
             response = self.model.generate_content(prompt)
             
-            # Extrahiere JSON-Block aus der Antwort
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if match:
                 return json.loads(match.group())
             return {"relevance_score": 0}
             
         except Exception as e:
+            # Falls das Modell immer noch nicht gefunden wird, probieren wir 'gemini-pro'
             print(f"⚠️ KI-Fehler: {e}")
             return {"relevance_score": 0}
