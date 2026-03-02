@@ -3,11 +3,11 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Ersetze dies durch deinen echten Key
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Hier den Key einfügen
 
 class HybridAI:
     def __init__(self):
-        # Nutzt den stabilen Client für 2026
+        # Der stabile Client für März 2026
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def analyze(self, text: str):
@@ -21,13 +21,13 @@ class HybridAI:
                 f"{{\"ticker\": \"TICKER\", \"relevance_score\": 8, \"direction\": \"LONG\", \"summary_german\": \"Zusammenfassung\"}}"
             )
             
-            # Neue Syntax ohne v1beta-Fehler
+            # Neue Syntax für 2026 (umgeht den v1beta-Fehler)
             response = self.client.models.generate_content(
                 model='gemini-1.5-flash',
                 contents=prompt
             )
             
-            # JSON-Block extrahieren
+            # JSON-Extraktion aus der Antwort
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if match:
                 return json.loads(match.group())
