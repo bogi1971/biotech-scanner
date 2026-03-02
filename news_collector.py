@@ -6,7 +6,9 @@ from datetime import datetime
 import time
 import re
 import asyncio
-
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Integration deiner spezialisierten Module
 try:
     from ai_engines import HybridAI
@@ -110,3 +112,4 @@ if __name__ == "__main__":
         asyncio.run(main_loop())
     except KeyboardInterrupt:
         print("\n🛑 Scanner manuell gestoppt.")
+
