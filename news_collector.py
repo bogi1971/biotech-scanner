@@ -109,4 +109,32 @@ class NewsCollector:
                 ]
                 filtered.append(article)
         return filtered
+import time
+
+if __name__ == "__main__":
+    collector = NewsCollector()
+    
+    # Keyword-Liste mit englischen und europäischen Schlüsselbegriffen
+    search_keywords = [
+        "approval", "phase", "merger", "earnings", "acquisition",
+        "Zulassung", "Übernahmeangebot", "Quartalszahlen"
+    ]
+    
+    while True:
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"\n[{current_time}] Starte neuen Sammel-Zyklus...")
+        
+        # 1. Alle News abrufen
+        all_articles = collector.fetch_all()
+        
+        # 2. Relevante News filtern
+        relevant_news = collector.filter_biotech(all_articles, search_keywords)
+        
+        print(f"🎯 {len(relevant_news)} relevante Biotech-Artikel gefunden.")
+        
+        for article in relevant_news:
+            print(f"- {article['source'].upper()}: {article['title']} (Keywords: {', '.join(article['matched_keywords'])})")
+            
+        print("\n⏳ Warte 15 Minuten bis zur nächsten Ausführung...")
+        time.sleep(900)  # 900 Sekunden = 15 Minuten
 
