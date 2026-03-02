@@ -3,7 +3,7 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "DEIN_GEMINI_API_KEY" # Hier deinen Key von aistudio.google.com einfügen
+GEMINI_API_KEY = "AIzaSyCco7XVRRg5-aVGK8ZXzY7wJKTpJS747vg" # Hier deinen Key von aistudio.google.com einfügen
 genai.configure(api_key=GEMINI_API_KEY)
 
 def analyze_score(text: str):
@@ -33,3 +33,4 @@ def analyze_score(text: str):
     except Exception as e:
         print(f"⚠️ KI-Fehler: {e}")
         return None
+
