@@ -14,16 +14,13 @@ jobs:
 
       - name: Altes Skript stoppen und neues starten
         run: |
-          # 1. Altes Skript stoppen
+          # 1. Altes Skript stoppen, falls es läuft
           pkill -f "news_collector.py" || true
           
-          # 2. Notwendige Python-Pakete sicherstellen
-          pip3 install -r requirements.txt || true
-          
-          # 3. Verhindern, dass GitHub das Skript nach Abschluss sofort killt
+          # 2. Verhindern, dass GitHub das Skript sofort killt
           export RUNNER_TRACKING_ID=""
           
-          # 4. Skript starten (-u sorgt dafür, dass die Text-Ausgaben sofort in die Log-Datei fließen)
-          nohup python3 -u news_collector.py > news_collector.log 2>&1 &
+          # 3. Skript mit DEINER virtuellen Umgebung starten!
+          nohup /home/bogi1971/biotech-scanner/venv/bin/python -u news_collector.py > news_collector.log 2>&1 &
           
           echo "🚀 Update erfolgreich eingespielt!"
