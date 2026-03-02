@@ -3,7 +3,6 @@ import asyncio
 
 class TelegramAlerter:
     def __init__(self, bot_token: str, chat_id: str):
-        # Wir verzichten auf komplexe Initialisierungen, um httpx-Fehler zu vermeiden
         self.token = bot_token
         self.chat_id = chat_id
 
