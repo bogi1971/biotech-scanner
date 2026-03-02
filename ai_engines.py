@@ -2,33 +2,34 @@ import google.generativeai as genai
 import json
 import re
 
-# API-Key konfigurieren
-GEMINI_API_KEY = "DEIN_API_KEY_HIER"
+# KONFIGURATION
+GEMINI_API_KEY = "DEIN_GEMINI_API_KEY" # Hier deinen Key von aistudio.google.com einfügen
 genai.configure(api_key=GEMINI_API_KEY)
 
-def analyze_with_gemini(text: str) -> dict:
+def analyze_score(text: str):
     """
-    Analysiert News, extrahiert Firma, Ticker und Score dynamisch.
-    Keine Watchliste nötig, die KI erkennt es aus dem Kontext.
+    KI-Analyse: Extrahiert Ticker und bewertet Daytrading-Potenzial.
     """
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt = (
-        "Analysiere diese Biotech-News für einen Daytrader. "
-        "1. Identifiziere die Hauptfirma und den Ticker (wenn kein Ticker bekannt, schätze ihn oder gib 'N/A'). "
-        "2. Gib einen Score von 1-10 für das Daytrading-Potenzial (FDA/Phase3/M&A = 10). "
-        "3. Antworte AUSSCHLIESSLICH im folgenden JSON-Format: "
-        "{'firma': 'Name', 'ticker': 'TICKER', 'score': 10, 'grund': 'Kurze Erklärung'}"
-        f"\n\nText: {text}"
-    )
-    
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "DEIN_GEMINI_API_KEY":
+        return {"ticker": "N/A", "score": 0, "direction": "NEUTRAL", "summary": "Key fehlt"}
+
     try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        prompt = f"""
+        Analysiere als Biotech-Daytrader diese News: "{text}"
+        
+        1. Welcher Aktien-Ticker ist betroffen?
+        2. Score 1-10 (10 = FDA Zulassung/Übernahme, 1 = Rauschen).
+        3. Richtung (LONG/SHORT).
+        4. Kurze deutsche Zusammenfassung (max. 10 Wörter).
+
+        Antworte NUR als JSON:
+        {{"ticker": "TICKER", "score": 8, "direction": "LONG", "summary": "Zusammenfassung"}}
+        """
         response = model.generate_content(prompt)
-        # JSON aus dem Antwort-Text extrahieren (falls die KI drumherum quatscht)
-        json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group())
+        # Extrahiere JSON-Block
+        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        return json.loads(match.group()) if match else None
     except Exception as e:
-        print(f"⚠️ Gemini KI-Fehler: {e}")
-    
-    return {'firma': 'Unknown', 'ticker': 'N/A', 'score': 0, 'grund': 'Fehler'}
+        print(f"⚠️ KI-Fehler: {e}")
+        return None
