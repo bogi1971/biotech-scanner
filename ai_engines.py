@@ -3,11 +3,11 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE"
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" 
 
 class HybridAI:
     def __init__(self):
-        # Der neue, stabile Client für März 2026
+        # Der stabile Client für 2026
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def analyze(self, text: str):
@@ -15,7 +15,11 @@ class HybridAI:
             return {"relevance_score": 0}
 
         try:
-            prompt = f"Analysiere als Biotech-Daytrader diese News: '{text}'. Gib NUR JSON zurück: {{'ticker': 'TICKER', 'relevance_score': 8, 'direction': 'LONG', 'summary_german': 'Zusammenfassung'}}"
+            prompt = (
+                f"Analysiere als Biotech-Daytrader diese News: '{text}'. "
+                f"Gib NUR ein JSON zurück: "
+                f"{{\"ticker\": \"TICKER\", \"relevance_score\": 8, \"direction\": \"LONG\", \"summary_german\": \"Zusammenfassung\"}}"
+            )
             
             # Neue Syntax ohne v1beta-Fehler
             response = self.client.models.generate_content(
