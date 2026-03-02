@@ -1,109 +1,97 @@
-# news_collector.py - ERWEITERTE VERSION
+# news_collector.py - MIT WEB-SCRAPING
 
-import feedparser
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import List, Dict
-import json
 import re
 
 class NewsCollector:
     def __init__(self):
-        print("🔥 ERWEITERTE NEWS COLLECTOR V2")
-        
-        # RSS-FEEDS
-        self.sources = {
-            # Bestehende
-            'endpoints': 'https://endpts.com/feed/',
-            'fierce_pharma': 'https://www.fiercepharma.com/rss.xml',
-            'fierce_biotech': 'https://www.fiercebiotech.com/rss.xml',
-            'stat_news': 'https://www.statnews.com/feed/',
-            
-            # NEU: Regulatory
-            'fda_news': 'https://www.fda.gov/news-events/newsroom/rss.xml',
-            'ema_news': 'https://www.ema.europa.eu/en/news/rss.xml',
-            
-            # NEU: Finanz/Investor
-            'biospace': 'https://www.biospace.com/rss/news',
-            'genengnews': 'https://www.genengnews.com/feed/',
-            
-            # NEU: Klinische Studien
-            'medpage_today': 'https://www.medpagetoday.com/rss/headlines.xml',
+        print("🔥 WEB-SCRAPING NEWS COLLECTOR V3")
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        
         self.seen_urls = set()
     
-    def fetch_rss(self, url: str, source_name: str) -> List[Dict]:
-        """RSS-Feed parsen"""
+    def scrape_endpoints(self) -> List[Dict]:
+        """Endpoints direkt scrapen"""
         try:
-            feed = feedparser.parse(url)
-            articles = []
-            for entry in feed.entries[:10]:
-                if entry.link not in self.seen_urls:
-                    articles.append({
-                        'title': entry.get('title', ''),
-                        'summary': entry.get('summary', entry.get('description', '')),
-                        'link': entry.link,
-                        'published': entry.get('published', ''),
-                        'source': source_name
-                    })
-                    self.seen_urls.add(entry.link)
-            return articles
-        except Exception as e:
-            print(f"   ⚠️  {source_name}: {str(e)[:40]}")
-            return []
-    
-    def fetch_fda_direct(self) -> List[Dict]:
-        """FDA Zulassungen direkt"""
-        try:
-            url = "https://www.fda.gov/drugs/drug-approvals-and-databases/drug-approvals-and-databases"
-            response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            url = "https://endpoints.news/"
+            response = requests.get(url, headers=self.headers, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
             
             articles = []
-            links = soup.find_all('a', href=re.compile('approval'))
-            
-            for link in links[:5]:
+            # Suche nach Artikel-Links
+            for link in soup.find_all('a', href=re.compile('/\\d{4}/\\d{2}/')):
                 title = link.get_text().strip()
-                if title and 'approval' in title.lower():
-                    href = link.get('href', '')
-                    if href.startswith('/'):
-                        href = 'https://www.fda.gov' + href
+                href = link.get('href', '')
+                
+                if title and href and href not in self.seen_urls:
+                    if not href.startswith('http'):
+                        href = 'https://endpoints.news' + href
                     
                     articles.append({
-                        'title': f"FDA: {title}",
-                        'summary': 'FDA Drug Approval',
+                        'title': title,
+                        'summary': 'Endpoints News Article',
                         'link': href,
                         'published': datetime.now().isoformat(),
-                        'source': 'fda_direct'
+                        'source': 'endpoints_web'
                     })
                     self.seen_urls.add(href)
             
-            return articles
+            return articles[:10]
         except Exception as e:
-            print(f"   ⚠️  FDA direkt: {str(e)[:40]}")
+            print(f"   ⚠️  Endpoints Web: {str(e)[:40]}")
+            return []
+    
+    def scrape_fierce_biotech(self) -> List[Dict]:
+        """Fierce Biotech direkt scrapen"""
+        try:
+            url = "https://www.fiercebiotech.com/"
+            response = requests.get(url, headers=self.headers, timeout=10)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            articles = []
+            for link in soup.find_all('a', href=re.compile('/\\d{4}-')):
+                title_elem = link.find(['h2', 'h3', 'span', 'div'], class_=re.compile('title|headline'))
+                title = title_elem.get_text().strip() if title_elem else link.get_text().strip()
+                href = link.get('href', '')
+                
+                if title and href and len(title) > 20 and href not in self.seen_urls:
+                    if not href.startswith('http'):
+                        href = 'https://www.fiercebiotech.com' + href
+                    
+                    articles.append({
+                        'title': title,
+                        'summary': 'Fierce Biotech Article',
+                        'link': href,
+                        'published': datetime.now().isoformat(),
+                        'source': 'fierce_biotech_web'
+                    })
+                    self.seen_urls.add(href)
+            
+            return articles[:10]
+        except Exception as e:
+            print(f"   ⚠️  Fierce Biotech Web: {str(e)[:40]}")
             return []
     
     def fetch_all(self) -> List[Dict]:
-        """Alle Quellen abrufen"""
+        """Alle Quellen scrapen"""
         all_news = []
         
-        print("\n📰 Sammle News aus allen Quellen...")
+        print("\n📰 Scrape News aus Webseiten...")
         print("="*50)
         
-        # RSS-Feeds
-        for name, url in self.sources.items():
-            print(f"📡 {name}...")
-            articles = self.fetch_rss(url, name)
-            all_news.extend(articles)
-            print(f"   ✅ {len(articles)} Artikel")
+        print(f"📡 Endpoints (Web)...")
+        articles = self.scrape_endpoints()
+        all_news.extend(articles)
+        print(f"   ✅ {len(articles)} Artikel")
         
-        # FDA Direkt
-        print(f"🏛️  FDA Direkt...")
-        fda_articles = self.fetch_fda_direct()
-        all_news.extend(fda_articles)
-        print(f"   ✅ {len(fda_articles)} Zulassungen")
+        print(f"📡 Fierce Biotech (Web)...")
+        articles = self.scrape_fierce_biotech()
+        all_news.extend(articles)
+        print(f"   ✅ {len(articles)} Artikel")
         
         print("="*50)
         print(f"📊 GESAMT: {len(all_news)} Artikel")
