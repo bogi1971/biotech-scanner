@@ -1,0 +1,23 @@
+name: Deploy to Proxmox
+
+on:
+  push:
+    branches:
+      - main 
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Neuen Code auf den Server ziehen
+        uses: actions/checkout@v3
+
+      - name: Altes Skript stoppen und neues starten
+        run: |
+          # Stoppt das alte Skript, falls es läuft
+          pkill -f "news_collector.py" || true
+          
+          # Startet das Skript neu im Hintergrund
+          nohup python3 news_collector.py > news_collector.log 2>&1 &
+          
+          echo "🚀 Update erfolgreich eingespielt!"
