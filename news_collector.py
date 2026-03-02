@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import List, Dict
 import re
-
+# Test-Start
 class NewsCollector:
     def __init__(self):
         print("🔥 WEB-SCRAPING NEWS COLLECTOR V3")
@@ -109,3 +109,4 @@ class NewsCollector:
                 ]
                 filtered.append(article)
         return filtered
+
