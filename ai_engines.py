@@ -3,11 +3,11 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Hier deinen Key einfügen
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE"
 
 class HybridAI:
     def __init__(self):
-        # Wir nutzen den neuen offiziellen Client für 2026
+        # Der neue, stabile Client für März 2026
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def analyze(self, text: str):
@@ -15,23 +15,16 @@ class HybridAI:
             return {"relevance_score": 0}
 
         try:
-            prompt = f"""
-            Analysiere als Biotech-Daytrader diese News: "{text}"
-            Gib als Antwort NUR ein JSON-Objekt zurück:
-            {{"ticker": "TICKER", "relevance_score": 8, "direction": "LONG", "summary_german": "Zusammenfassung"}}
-            """
-            # Neue, stabile Syntax für den 2026 Client
+            prompt = f"Analysiere als Biotech-Daytrader diese News: '{text}'. Gib NUR JSON zurück: {{'ticker': 'TICKER', 'relevance_score': 8, 'direction': 'LONG', 'summary_german': 'Zusammenfassung'}}"
+            
+            # Neue Syntax ohne v1beta-Fehler
             response = self.client.models.generate_content(
                 model='gemini-1.5-flash',
                 contents=prompt
             )
             
-            # JSON extrahieren (Gemini liefert jetzt oft Text direkt)
-            json_text = response.text
-            match = re.search(r'\{.*\}', json_text, re.DOTALL)
-            if match:
-                return json.loads(match.group())
-            return {"relevance_score": 0}
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            return json.loads(match.group()) if match else {"relevance_score": 0}
             
         except Exception as e:
             print(f"⚠️ KI-Fehler: {e}")
