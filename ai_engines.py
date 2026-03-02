@@ -1,15 +1,14 @@
-import google.generativeai as genai
+from google import genai
 import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Stelle sicher, dass der Key korrekt ist
-genai.configure(api_key=GEMINI_API_KEY)
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Hier deinen Key einfügen
 
 class HybridAI:
     def __init__(self):
-        # Wir nutzen den Basisnamen
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Wir nutzen den neuen offiziellen Client für 2026
+        self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def analyze(self, text: str):
         if not GEMINI_API_KEY or "AIza" not in GEMINI_API_KEY:
@@ -21,15 +20,19 @@ class HybridAI:
             Gib als Antwort NUR ein JSON-Objekt zurück:
             {{"ticker": "TICKER", "relevance_score": 8, "direction": "LONG", "summary_german": "Zusammenfassung"}}
             """
-            # Anfrage an die KI
-            response = self.model.generate_content(prompt)
+            # Neue, stabile Syntax für den 2026 Client
+            response = self.client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt
+            )
             
-            # JSON extrahieren
-            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            # JSON extrahieren (Gemini liefert jetzt oft Text direkt)
+            json_text = response.text
+            match = re.search(r'\{.*\}', json_text, re.DOTALL)
             if match:
                 return json.loads(match.group())
             return {"relevance_score": 0}
             
         except Exception as e:
-            print(f"⚠️ KI-Fehler im Detail: {e}")
+            print(f"⚠️ KI-Fehler: {e}")
             return {"relevance_score": 0}
