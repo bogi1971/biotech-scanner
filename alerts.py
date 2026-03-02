@@ -15,11 +15,12 @@ class TelegramAlerter:
         ticker = analysis.get('ticker', 'N/A')
         
         emoji = "🟢📈" if direction == "LONG" else "🔴📉"
+        summary = analysis.get('summary_german', 'Keine Info')
         
         message = (
             f"<b>{emoji} SIGNAL: {direction}</b>\n"
             f"<b>Ticker: ${ticker} | Score: {score}/10</b>\n\n"
-            f"📝 {analysis.get('summary_german', 'Keine Info')}\n\n"
+            f"📝 {summary}\n\n"
             f"<a href='{article.get('link', '')}'>📰 Zum Artikel</a>"
         )
         
