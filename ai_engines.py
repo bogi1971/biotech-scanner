@@ -3,7 +3,7 @@ import json
 import re
 
 # KONFIGURATION
-GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" # Hier deinen Key einfügen
+GEMINI_API_KEY = "AIzaSyBlvbSAcdo-GCI5f0Wnn0QTHJTjMq7sFhE" 
 
 class HybridAI:
     def __init__(self):
@@ -21,12 +21,13 @@ class HybridAI:
                 f"{{\"ticker\": \"TICKER\", \"relevance_score\": 8, \"direction\": \"LONG\", \"summary_german\": \"Zusammenfassung\"}}"
             )
             
-            # Neue Syntax für 2026 (umgeht den v1beta-Fehler)
+            # Neue Syntax für 2026 (vermeidet den v1beta-Fehler)
             response = self.client.models.generate_content(
                 model='gemini-1.5-flash',
                 contents=prompt
             )
             
+            # JSON-Extraktion aus dem Text
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             return json.loads(match.group()) if match else {"relevance_score": 0}
             
