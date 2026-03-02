@@ -1,105 +1,111 @@
-# news_collector.py - MIT WEB-SCRAPING
+# news_collector.py - RSS & SCRAPING KOMBI-VERSION
 
+import feedparser
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import List, Dict
+import time
 import re
-# Test-Start
+
 class NewsCollector:
     def __init__(self):
-        print("🔥 WEB-SCRAPING NEWS COLLECTOR V3")
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        print("🔥 RSS & SCRAPING NEWS COLLECTOR V4")
+        
+        # Zuverlässige RSS-FEEDS
+        self.sources = {
+            'endpoints': 'https://endpts.com/feed/',
+            'fierce_pharma': 'https://www.fiercepharma.com/rss.xml',
+            'fierce_biotech': 'https://www.fiercebiotech.com/rss.xml',
+            'stat_news': 'https://www.statnews.com/feed/',
+            'fda_news': 'https://www.fda.gov/news-events/newsroom/rss.xml',
+            'ema_news': 'https://www.ema.europa.eu/en/news/rss.xml',
+            'biospace': 'https://www.biospace.com/rss/news',
+            'genengnews': 'https://www.genengnews.com/feed/',
+            'medpage_today': 'https://www.medpagetoday.com/rss/headlines.xml',
         }
+        
         self.seen_urls = set()
     
-    def scrape_endpoints(self) -> List[Dict]:
-        """Endpoints direkt scrapen"""
+    def fetch_rss(self, url: str, source_name: str) -> List[Dict]:
+        """RSS-Feed parsen"""
         try:
-            url = "https://endpoints.news/"
-            response = requests.get(url, headers=self.headers, timeout=10)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
+            feed = feedparser.parse(url)
             articles = []
-            # Suche nach Artikel-Links
-            for link in soup.find_all('a', href=re.compile('/\\d{4}/\\d{2}/')):
-                title = link.get_text().strip()
-                href = link.get('href', '')
-                
-                if title and href and href not in self.seen_urls:
-                    if not href.startswith('http'):
-                        href = 'https://endpoints.news' + href
-                    
+            for entry in feed.entries[:10]:
+                if entry.link not in self.seen_urls:
                     articles.append({
-                        'title': title,
-                        'summary': 'Endpoints News Article',
-                        'link': href,
-                        'published': datetime.now().isoformat(),
-                        'source': 'endpoints_web'
+                        'title': entry.get('title', ''),
+                        'summary': entry.get('summary', entry.get('description', '')),
+                        'link': entry.link,
+                        'published': entry.get('published', ''),
+                        'source': source_name
                     })
-                    self.seen_urls.add(href)
-            
-            return articles[:10]
+                    self.seen_urls.add(entry.link)
+            return articles
         except Exception as e:
-            print(f"   ⚠️  Endpoints Web: {str(e)[:40]}")
+            print(f"   ⚠️  {source_name}: {str(e)[:40]}")
             return []
     
-    def scrape_fierce_biotech(self) -> List[Dict]:
-        """Fierce Biotech direkt scrapen"""
+    def fetch_fda_direct(self) -> List[Dict]:
+        """FDA Zulassungen direkt von der Website scrapen"""
         try:
-            url = "https://www.fiercebiotech.com/"
-            response = requests.get(url, headers=self.headers, timeout=10)
+            url = "https://www.fda.gov/drugs/drug-approvals-and-databases/drug-approvals-and-databases"
+            response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
             soup = BeautifulSoup(response.content, 'html.parser')
             
             articles = []
-            for link in soup.find_all('a', href=re.compile('/\\d{4}-')):
-                title_elem = link.find(['h2', 'h3', 'span', 'div'], class_=re.compile('title|headline'))
-                title = title_elem.get_text().strip() if title_elem else link.get_text().strip()
-                href = link.get('href', '')
-                
-                if title and href and len(title) > 20 and href not in self.seen_urls:
-                    if not href.startswith('http'):
-                        href = 'https://www.fiercebiotech.com' + href
-                    
-                    articles.append({
-                        'title': title,
-                        'summary': 'Fierce Biotech Article',
-                        'link': href,
-                        'published': datetime.now().isoformat(),
-                        'source': 'fierce_biotech_web'
-                    })
-                    self.seen_urls.add(href)
+            links = soup.find_all('a', href=re.compile('approval'))
             
-            return articles[:10]
+            for link in links[:5]:
+                title = link.get_text().strip()
+                if title and 'approval' in title.lower():
+                    href = link.get('href', '')
+                    if href.startswith('/'):
+                        href = 'https://www.fda.gov' + href
+                    
+                    if href not in self.seen_urls:
+                        articles.append({
+                            'title': f"FDA: {title}",
+                            'summary': 'FDA Drug Approval',
+                            'link': href,
+                            'published': datetime.now().isoformat(),
+                            'source': 'fda_direct'
+                        })
+                        self.seen_urls.add(href)
+            
+            return articles
         except Exception as e:
-            print(f"   ⚠️  Fierce Biotech Web: {str(e)[:40]}")
+            print(f"   ⚠️  FDA direkt: {str(e)[:40]}")
             return []
     
     def fetch_all(self) -> List[Dict]:
-        """Alle Quellen scrapen"""
+        """Alle Quellen abrufen"""
         all_news = []
         
-        print("\n📰 Scrape News aus Webseiten...")
+        print("\n📰 Sammle News aus allen Quellen...")
         print("="*50)
         
-        print(f"📡 Endpoints (Web)...")
-        articles = self.scrape_endpoints()
-        all_news.extend(articles)
-        print(f"   ✅ {len(articles)} Artikel")
+        # 1. RSS-Feeds abrufen
+        for name, url in self.sources.items():
+            print(f"📡 {name}...")
+            articles = self.fetch_rss(url, name)
+            all_news.extend(articles)
+            print(f"   ✅ {len(articles)} Artikel")
         
-        print(f"📡 Fierce Biotech (Web)...")
-        articles = self.scrape_fierce_biotech()
-        all_news.extend(articles)
-        print(f"   ✅ {len(articles)} Artikel")
+        # 2. FDA Direkt abrufen
+        print(f"🏛️  FDA Direkt...")
+        fda_articles = self.fetch_fda_direct()
+        all_news.extend(fda_articles)
+        print(f"   ✅ {len(fda_articles)} Zulassungen")
         
         print("="*50)
-        print(f"📊 GESAMT: {len(all_news)} Artikel")
+        print(f"📊 GESAMT: {len(all_news)} neue Artikel gefunden")
         
         return all_news
     
     def filter_biotech(self, articles: List[Dict], keywords: List[str]) -> List[Dict]:
-        """Nur relevante Biotech-News"""
+        """Nur relevante Biotech-News anhand der Keywords filtern"""
         filtered = []
         for article in articles:
             text = f"{article['title']} {article['summary']}".lower()
@@ -109,12 +115,10 @@ class NewsCollector:
                 ]
                 filtered.append(article)
         return filtered
-import time
 
 if __name__ == "__main__":
     collector = NewsCollector()
     
-    # Keyword-Liste mit englischen und europäischen Schlüsselbegriffen
     search_keywords = [
         "approval", "phase", "merger", "earnings", "acquisition",
         "Zulassung", "Übernahmeangebot", "Quartalszahlen"
@@ -124,10 +128,7 @@ if __name__ == "__main__":
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"\n[{current_time}] Starte neuen Sammel-Zyklus...")
         
-        # 1. Alle News abrufen
         all_articles = collector.fetch_all()
-        
-        # 2. Relevante News filtern
         relevant_news = collector.filter_biotech(all_articles, search_keywords)
         
         print(f"🎯 {len(relevant_news)} relevante Biotech-Artikel gefunden.")
@@ -135,6 +136,5 @@ if __name__ == "__main__":
         for article in relevant_news:
             print(f"- {article['source'].upper()}: {article['title']} (Keywords: {', '.join(article['matched_keywords'])})")
             
-        print("\n⏳ Warte 15 Minuten bis zur nächsten Ausführung...")
-        time.sleep(900)  # 900 Sekunden = 15 Minuten
-
+        print("\n⏳ Warte 1 Stunde bis zur nächsten Ausführung...")
+        time.sleep(3600)
