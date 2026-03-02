@@ -19,11 +19,12 @@ class TelegramAlerter:
         message = (
             f"<b>{emoji} SIGNAL: {direction}</b>\n"
             f"<b>Ticker: ${ticker} | Score: {score}/10</b>\n\n"
-            f"📝 {analysis.get('summary_german', 'Keine Info')}\n\n"
+            f"📝 {analysis.get('summary_german', 'Keine Zusammenfassung vorhanden')}\n\n"
             f"<a href='{article.get('link', '')}'>📰 Zum Artikel</a>"
         )
         
         try:
+            # Direkte Instanzierung behebt httpx-Konflikte
             bot = telegram.Bot(token=self.token)
             async with bot:
                 await bot.send_message(
