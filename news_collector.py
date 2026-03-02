@@ -1,4 +1,3 @@
-# news_collector.py - FINALE DAYTRADING VERSION
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -8,14 +7,20 @@ import re
 import asyncio
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-# Integration deiner spezialisierten Module
+
+# DER TRICK: Wir zwingen Python, im aktuellen Ordner zu suchen
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+# Jetzt die Integration deiner Module
 try:
     from ai_engines import HybridAI
     from alerts import TelegramAlerter
-except ImportError:
-    print("⚠️ Warnung: ai_engines.py oder alerts.py nicht gefunden!")
-    # Minimal-Fallback für Testzwecke
+    print("✅ Erfolg: ai_engines und alerts erfolgreich geladen!")
+except ImportError as e:
+    print(f"⚠️ Import-Fehler: {e}")
+    # Minimal-Fallback
     class HybridAI:
         def analyze(self, text): return {"relevance_score": 0}
     class TelegramAlerter:
@@ -112,4 +117,5 @@ if __name__ == "__main__":
         asyncio.run(main_loop())
     except KeyboardInterrupt:
         print("\n🛑 Scanner manuell gestoppt.")
+
 
