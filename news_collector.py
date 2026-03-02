@@ -1,4 +1,4 @@
-# news_collector.py - RSS & SCRAPING KOMBI-VERSION
+# news_collector.py - COMPLETE VERSION (RSS, Scraping, KI & Telegram)
 
 import feedparser
 import requests
@@ -8,11 +8,24 @@ from typing import List, Dict
 import time
 import re
 
+# -------------------------------------------------------------------
+# WICHTIG: Import deiner eigenen Module!
+# Da ich die genauen Namen in deinen Dateien nicht kenne, 
+# nutze ich hier Platzhalter (analyze_score, get_eps_data, send_to_telegram).
+# -------------------------------------------------------------------
+try:
+    from ai_engines import analyze_score, get_eps_data
+    from alerts import send_to_telegram
+except ImportError:
+    print("⚠️ Warnung: Eigene Module nicht gefunden. Nutze Fallback-Funktionen.")
+    def analyze_score(text): return 0
+    def get_eps_data(text): return 0
+    def send_to_telegram(msg): print(f"TELEGRAM-MOCK: {msg}")
+
 class NewsCollector:
     def __init__(self):
-        print("🔥 RSS & SCRAPING NEWS COLLECTOR V4")
+        print("🔥 RSS & SCRAPING NEWS COLLECTOR (KI & Telegram Edition)")
         
-        # Zuverlässige RSS-FEEDS
         self.sources = {
             'endpoints': 'https://endpts.com/feed/',
             'fierce_pharma': 'https://www.fiercepharma.com/rss.xml',
@@ -24,11 +37,9 @@ class NewsCollector:
             'genengnews': 'https://www.genengnews.com/feed/',
             'medpage_today': 'https://www.medpagetoday.com/rss/headlines.xml',
         }
-        
         self.seen_urls = set()
     
     def fetch_rss(self, url: str, source_name: str) -> List[Dict]:
-        """RSS-Feed parsen"""
         try:
             feed = feedparser.parse(url)
             articles = []
@@ -48,7 +59,6 @@ class NewsCollector:
             return []
     
     def fetch_fda_direct(self) -> List[Dict]:
-        """FDA Zulassungen direkt von der Website scrapen"""
         try:
             url = "https://www.fda.gov/drugs/drug-approvals-and-databases/drug-approvals-and-databases"
             response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
@@ -73,46 +83,30 @@ class NewsCollector:
                             'source': 'fda_direct'
                         })
                         self.seen_urls.add(href)
-            
             return articles
         except Exception as e:
             print(f"   ⚠️  FDA direkt: {str(e)[:40]}")
             return []
     
     def fetch_all(self) -> List[Dict]:
-        """Alle Quellen abrufen"""
         all_news = []
-        
         print("\n📰 Sammle News aus allen Quellen...")
-        print("="*50)
         
-        # 1. RSS-Feeds abrufen
         for name, url in self.sources.items():
-            print(f"📡 {name}...")
             articles = self.fetch_rss(url, name)
             all_news.extend(articles)
-            print(f"   ✅ {len(articles)} Artikel")
         
-        # 2. FDA Direkt abrufen
-        print(f"🏛️  FDA Direkt...")
         fda_articles = self.fetch_fda_direct()
         all_news.extend(fda_articles)
-        print(f"   ✅ {len(fda_articles)} Zulassungen")
-        
-        print("="*50)
-        print(f"📊 GESAMT: {len(all_news)} neue Artikel gefunden")
         
         return all_news
     
     def filter_biotech(self, articles: List[Dict], keywords: List[str]) -> List[Dict]:
-        """Nur relevante Biotech-News anhand der Keywords filtern"""
         filtered = []
         for article in articles:
             text = f"{article['title']} {article['summary']}".lower()
             if any(kw.lower() in text for kw in keywords):
-                article['matched_keywords'] = [
-                    kw for kw in keywords if kw.lower() in text
-                ]
+                article['matched_keywords'] = [kw for kw in keywords if kw.lower() in text]
                 filtered.append(article)
         return filtered
 
@@ -134,7 +128,18 @@ if __name__ == "__main__":
         print(f"🎯 {len(relevant_news)} relevante Biotech-Artikel gefunden.")
         
         for article in relevant_news:
-            print(f"- {article['source'].upper()}: {article['title']} (Keywords: {', '.join(article['matched_keywords'])})")
+            print(f"- {article['source'].upper()}: {article['title']}")
+            
+            text_to_analyze = f"{article['title']} {article['summary']}"
+            
+            # KI-Bewertung durchführen (anhand deiner ai_engines.py)
+            score = analyze_score(text_to_analyze)
+            eps_growth = get_eps_data(text_to_analyze)
+            
+            # Warnung nur auslösen, wenn Score > 7 UND EPS > 15%
+            if score > 7 and eps_growth > 15:
+                nachricht = f"🚨 HOT NEWS (Score: {score} | EPS: +{eps_growth}%)\n\n{article['title']}\n{article['link']}"
+                send_to_telegram(nachricht)
             
         print("\n⏳ Warte 1 Stunde bis zur nächsten Ausführung...")
         time.sleep(3600)
