@@ -51,16 +51,12 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15'
 ]
 
-# --- KURS-ABFRAGE FUNKTION - KORRIGIERT ---
+# --- KURS-ABFRAGE FUNKTION ---
 async def get_market_data(ticker: str) -> Tuple[str, float, float]:
-    """Asynchrone Kursabfrage mit yfinance - korrigierte Version."""
     try:
         loop = asyncio.get_event_loop()
-        
-        # Ticker Objekt erstellen
         stock = await loop.run_in_executor(None, yf.Ticker, ticker)
         
-        # Versuche zuerst fast_info
         try:
             info = await loop.run_in_executor(None, lambda: stock.fast_info)
             price = getattr(info, 'last_price', None) or getattr(info, 'lastPrice', None)
@@ -70,7 +66,6 @@ async def get_market_data(ticker: str) -> Tuple[str, float, float]:
                 raise AttributeError("No price data")
                 
         except (AttributeError, Exception) as e:
-            # Fallback zu regular info
             logger.debug(f"FastInfo failed for {ticker}, trying regular info: {e}")
             info = await loop.run_in_executor(None, lambda: stock.info)
             price = info.get('regularMarketPrice', info.get('currentPrice', 0))
@@ -81,11 +76,9 @@ async def get_market_data(ticker: str) -> Tuple[str, float, float]:
             else:
                 change_pct = 0
         
-        # Sicherstellen dass wir Werte haben
         price = float(price) if price else 0.0
         change_pct = float(change_pct) if change_pct else 0.0
         
-        # Status bestimmen
         if change_pct >= 5.0:
             status = "🚀 EXTREMER AUSBRUCH (>5%)"
         elif change_pct >= 3.0:
@@ -106,34 +99,32 @@ async def get_market_data(ticker: str) -> Tuple[str, float, float]:
 # --- HAUPTKLASSE ---
 class LiveScanner:
     def __init__(self):
-        logger.info("🚀 BIOTECH SCANNER V11 - STABLE")
+        logger.info("🚀 BIOTECH SCANNER V11.3 - DAILY HEARTBEAT")
         
         self.client = Groq(api_key=GROQ_KEY)
         self.bot = telegram.Bot(token=TG_TOKEN)
         self.session: Optional[aiohttp.ClientSession] = None
         
-        # Funktionierende/fehlerresistente Feeds
+        # Die sauberen und funktionierenden Quellen
         self.sources = {
             'stat_news': 'https://www.statnews.com/feed/',
             'endpts': 'https://endpts.com/feed/',
             'fierce_biotech': 'https://www.fiercebiotech.com/rss.xml',
+            'ema_news': 'https://www.ema.europa.eu/en/news.xml',
+            'biospace': 'https://www.biospace.com/rss'
         }
         
-        # Backup-Feeds (werden nur bei Bedarf versucht)
-        self.backup_sources = {
-            'genengnews': 'https://www.genengnews.com/feed/',
-            'biospace': 'https://www.biospace.com/rss/news',
-        }
+        self.backup_sources = {}
         
-        # Begrenzte URL-History
         self.seen_urls: Dict[str, float] = {}
         self.max_url_history = 5000
         
-        # Watchlist mit Timeout
         self.watchlist: Dict[str, WatchlistEntry] = {}
         self.watchlist_timeout = 1800  # 30 Minuten
         
-        # Rate Limiting für Groq
+        # NEU: Variable für den täglichen Report
+        self.last_status_date = None
+        
         self.last_groq_call = 0
         self.groq_min_interval = 2
         
@@ -152,18 +143,15 @@ class LiveScanner:
         ]
 
     async def __aenter__(self):
-        """Async Context Manager für Session-Management."""
         timeout = aiohttp.ClientTimeout(total=20)
         self.session = aiohttp.ClientSession(timeout=timeout)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Session sauber schließen."""
         if self.session:
             await self.session.close()
 
     def _get_headers(self) -> dict:
-        """Zufällige Headers für jeden Request."""
         return {
             'User-Agent': random.choice(USER_AGENTS),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -176,7 +164,6 @@ class LiveScanner:
         }
 
     def _clean_url_history(self):
-        """Alte URLs entfernen wenn Limit erreicht."""
         if len(self.seen_urls) > self.max_url_history:
             sorted_urls = sorted(self.seen_urls.items(), key=lambda x: x[1])
             cutoff = int(len(sorted_urls) * 0.2)
@@ -184,7 +171,6 @@ class LiveScanner:
             logger.info(f"URL-History bereinigt: {len(self.seen_urls)} Einträge verbleibend")
 
     async def fetch_feed(self, url: str) -> Optional[str]:
-        """Asynchroner Feed-Fetch mit Retry-Logik."""
         headers = self._get_headers()
         
         for attempt in range(3):
@@ -209,7 +195,6 @@ class LiveScanner:
         return None
 
     async def analyze_with_groq(self, title: str) -> Optional[dict]:
-        """KI-Analyse mit Rate-Limiting."""
         time_since_last = time.time() - self.last_groq_call
         if time_since_last < self.groq_min_interval:
             await asyncio.sleep(self.groq_min_interval - time_since_last)
@@ -260,7 +245,6 @@ class LiveScanner:
         return None
 
     async def send_telegram_alert(self, message: str):
-        """Telegram-Nachricht senden."""
         try:
             await self.bot.send_message(
                 chat_id=TG_CHAT_ID,
@@ -272,7 +256,6 @@ class LiveScanner:
             logger.error(f"Telegram-Fehler: {e}")
 
     async def check_watchlist(self):
-        """Watchlist auf Ausbrüche prüfen."""
         if not self.watchlist:
             return
 
@@ -314,7 +297,6 @@ class LiveScanner:
             self.watchlist.pop(ticker, None)
 
     async def process_news_item(self, entry, source_name: str):
-        """Einzelnen News-Eintrag verarbeiten."""
         link = entry.link
         
         if link in self.seen_urls:
@@ -365,11 +347,31 @@ class LiveScanner:
             logger.info(f"📌 {ticker} auf Watchlist gesetzt")
 
     async def scan_cycle(self):
-        """Ein kompletter Scan-Zyklus."""
         logger.info("=" * 50)
         logger.info("🔄 STARTE SCAN-ZYKLUS")
         logger.info("=" * 50)
         
+        # --- NEU: TÄGLICHER MORGEN-REPORT (Um 08:00 Uhr) ---
+        now = datetime.now()
+        current_date = now.strftime("%Y-%m-%d")
+        
+        # Prüfen ob es 8 Uhr ist UND wir heute noch keinen Report gesendet haben
+        if now.hour == 8 and self.last_status_date != current_date:
+            try:
+                status_msg = (
+                    "🌅 <b>Guten Morgen! System läuft fehlerfrei.</b>\n\n"
+                    "Dein Biotech-Scanner ist aktiv und überwacht die Märkte für dich. 🚀\n\n"
+                    f"📡 <b>Feeds aktiv:</b> {len(self.sources)}\n"
+                    f"👀 <b>Aktuell auf Watchlist:</b> {len(self.watchlist)} Ticker\n"
+                    f"🤖 <b>KI-Modell:</b> Llama-3.3 (Online)"
+                )
+                await self.send_telegram_alert(status_msg)
+                self.last_status_date = current_date
+                logger.info("✅ Tägliches Morgen-Update gesendet!")
+            except Exception as e:
+                logger.error(f"Fehler beim Senden des Morgen-Reports: {e}")
+        # ----------------------------------------------------
+
         await self.check_watchlist()
         
         tasks = []
@@ -390,7 +392,6 @@ class LiveScanner:
         await asyncio.sleep(300)
 
     async def _scan_single_source(self, source_name: str, url: str) -> bool:
-        """Einzelnen Feed scannen."""
         logger.info(f"📡 Lese: {source_name}")
         
         content = await self.fetch_feed(url)
@@ -415,7 +416,6 @@ class LiveScanner:
             return False
 
     async def run(self):
-        """Hauptloop."""
         logger.info("Scanner gestartet. Drücke Ctrl+C zum Beenden.")
         
         try:
